@@ -1,0 +1,53 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include "pqsort.h"
+
+int q_partition(int left, int right, int* a){
+    int i = left; int j = right - 1;
+    int ind = rand() % (right-left) + left;
+    int x = a[ind];
+    while(i <= j) {
+        while(a[i] < x) i++;
+        while(a[j] > x) j--;
+        if (i <= j) {
+            int tmp = a[i];
+            a[i++] = a[j];
+            a[j--] = tmp;
+        }
+    }
+    return j;
+}
+
+void new_task(int left, int right, int* a, struct ThreadPool* pool){
+    if (right - left < 2) pool->not_complete--;
+    if (left < right) {
+        struct Task* task = malloc(sizeof(struct Task));
+        //task->link = malloc(sizeof(struct list_node));
+        task->arg = malloc(sizeof(struct Args));
+        pthread_mutex_init(&task->mutex, NULL);
+        printf("Memory allocated\n");
+        fflush(stdout);
+        task->f = pqsort;
+        struct Args* args = malloc(sizeof(struct Args));
+        args->arr = a;
+        args->left = left;
+        args->right = right;
+        args->arr = a;
+        args->pool = pool;
+        task->arg = args;
+        printf("Args ready: left and right %d %d\n", args->left, args->right);
+        fflush(stdout);
+        thpool_submit(pool, task);
+    }
+}
+
+void pqsort(void* a){
+    printf("Hi, I'm pqsort\n");
+    fflush(stdout);
+    struct Args* args = a;
+    printf("%d %d\n", args->left, args->right);
+    fflush(stdout);
+    int new_border = q_partition(args->left, args->right, args->arr);
+    new_task(args->left, new_border+1, args->arr, args->pool);
+    new_task(new_border+1, args->right, args->arr, args->pool);
+}
