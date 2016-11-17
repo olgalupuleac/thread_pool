@@ -15,12 +15,13 @@ int q_partition(int left, int right, int* a){
             a[j--] = tmp;
         }
     }
-    return j;
+    if (i < j) return j;
+    return i;
 }
 
 void new_task(int left, int right, int* a, struct ThreadPool* pool){
-    if (right - left < 2) pool->not_complete--;
-    if (left < right) {
+    if (right - left == 1) pool->not_complete--;
+    if (right - left > 1) {
         struct Task* task = malloc(sizeof(struct Task));
         //task->link = malloc(sizeof(struct list_node));
         task->arg = malloc(sizeof(struct Args));
@@ -48,6 +49,6 @@ void pqsort(void* a){
     printf("%d %d\n", args->left, args->right);
     fflush(stdout);
     int new_border = q_partition(args->left, args->right, args->arr);
-    new_task(args->left, new_border+1, args->arr, args->pool);
-    new_task(new_border+1, args->right, args->arr, args->pool);
+    new_task(args->left, new_border, args->arr, args->pool);
+    new_task(new_border, args->right, args->arr, args->pool);
 }

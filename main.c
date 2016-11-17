@@ -22,7 +22,7 @@ int main()
     pthread_mutex_unlock(&pool.guard);
   }
   thpool_finit(&pool);
-  for (int i=0; i<2; i++){
+  for (int i=0; i<N; i++){
     printf("%d ", x[i]);
   }
   return 0;

@@ -26,6 +26,8 @@ void thpool_init(struct ThreadPool* pool, unsigned threads_nm, int not_complete)
 }
 
 void thpool_finit(struct ThreadPool* pool){
+    printf("Finished\n");
+    fflush(stdout);
     pool->not_complete = 0;
     for (unsigned i = 0; i < pool->num; i++){
         pthread_join(pool->threads[i], NULL);
