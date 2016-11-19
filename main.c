@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "main.h"
-#include "thread_pool.h"
 
 int x[100000];
 int y[100000];
@@ -21,7 +20,7 @@ int main()
 {
   printf("Write down array size and number of threads\n");
   scanf("%d%d", &N, &threads_num);
-  for (int i=0; i < N; i++){
+  for (int i = 0; i < N; i++){
       x[i] = rand();
       y[i] = x[i];
       //printf("%d ", x[i]);
@@ -40,7 +39,7 @@ int main()
       pthread_cond_wait(&cond_exit, &guard);
   }
   pthread_mutex_unlock(&guard);
-  for (int i=0; i<N; i++){
+  for (int i = 0; i < N; i++){
       //printf("%d ", x[i]);
       assert(x[i] == y[i]);
   }

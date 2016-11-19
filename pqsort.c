@@ -20,7 +20,7 @@ int q_partition(int left, int right, int* a){
             a[j--] = tmp;
         }
     }
-    if (i < j) return j;
+    //if (i < j) return j;
     return i;
 }
 

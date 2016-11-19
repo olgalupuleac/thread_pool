@@ -66,7 +66,7 @@ void thpool_wait(struct Task* task){
     while(! task->complete){
         pthread_cond_wait(&task->cond, &task->mutex);
     }
-    pthread_mutex_lock(&task->mutex);
+    pthread_mutex_unlock(&task->mutex);
 }
 
 void* thpool_go(void* arg){
