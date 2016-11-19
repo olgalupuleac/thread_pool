@@ -27,6 +27,7 @@ void thpool_submit(struct ThreadPool* pool, struct Task* task); // добавляет зад
 void thpool_wait(struct Task* task); // возвращает управление только после того, как задача task завершилась
 void thpool_finit(struct ThreadPool* pool); // финализирует пул потоков, дожидается завершения всех задач в пуле, затем освобождает ресурсы, потребляемые пулом потоков
 void* thpool_go(void* arg);
-void clean(struct Task* task);
+struct Task* create_task(void);
+void destroy_task(struct Task* task);
 
 #endif // THREAD_POOL_H_INCLUDED

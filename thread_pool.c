@@ -25,26 +25,26 @@ void thpool_init(struct ThreadPool* pool, unsigned threads_nm){
 }
 
 void thpool_finit(struct ThreadPool* pool){
-    printf("Finished\n");
-    fflush(stdout);
-    pool->not_complete = 0;
+    //printf("Finished\n");
+    //fflush(stdout);
     pthread_mutex_lock(&pool->pool_mutex);
+    pool->not_complete = 0;
+    //printf("not complete changed it's now %d\n",  pool->not_complete);
+    //fflush(stdout);
+    pthread_mutex_unlock(&pool->pool_mutex);
     for (unsigned i = 0; i < pool->num; i++){
-        struct Task* task = malloc(sizeof(struct Task));
-        task->arg = " ";
-        task->f = printf;
-        task->free_arg = 0;
-        task->free = 1;
+        struct Task* task = create_task();
+        task->arg = NULL;
+        task->f = NULL;
         thpool_submit(pool, task);
     }
-    pthread_mutex_unlock(&pool->pool_mutex);
     for (unsigned i = 0; i < pool->num; i++){
         pthread_join(pool->threads[i], NULL);
     }
     while(queue_size(&pool->tasks->squeue.queue)){
         struct list_node* node = wsqueue_pop(pool->tasks);
         struct Task* task = (struct Task*) node;
-        clean(task);
+        destroy_task(task);
     }
     pthread_mutex_destroy(&pool->pool_mutex);
     free(pool->threads);
@@ -73,18 +73,22 @@ void* thpool_go(void* arg){
     struct ThreadPool* pool = arg;
     //printf("Go\n");
     //fflush(stdout);
+    pthread_mutex_lock(&pool->pool_mutex);
+    //printf("Lock\n");
+    //fflush(stdout);
     while(pool->not_complete){
-        //printf("GO go %d\n", pool->not_complete);
+        pthread_mutex_unlock(&pool->pool_mutex);
+        //printf("Unlock in while\n");
         //fflush(stdout);
         wsqueue_wait(pool->tasks);
         //printf("I'm working %d\n", queue_size(&pool->tasks->squeue.queue));
         //fflush(stdout);
-        pthread_mutex_lock(&pool->pool_mutex);
+        //pthread_mutex_lock(&pool->pool_mutex);
         struct list_node* node = wsqueue_pop(pool->tasks);
-        pthread_mutex_unlock(&pool->pool_mutex);
+        //pthread_mutex_unlock(&pool->pool_mutex);
         //printf("I'm trying to get task %d\n");
         //fflush(stdout);
-        if (node){
+        if(node){
             //printf("getting task %d\n", pool->not_complete);
             //fflush(stdout);
             struct Task* task = (struct Task*) node;
@@ -94,18 +98,32 @@ void* thpool_go(void* arg){
             fflush(stdout);
             printf("%p\n", task->arg);
             fflush(stdout);*/
-            pthread_mutex_destroy(&task->mutex);
-            pthread_cond_destroy(&task->cond);
-            task->f(task->arg);
-            clean(task);
+            if(task->f) task->f(task->arg);
+            destroy_task(task);
         }
+        pthread_mutex_lock(&pool->pool_mutex);
+        //printf("Lock in while\n");
+        //fflush(stdout);
     }
+    pthread_mutex_unlock(&pool->pool_mutex);
+    //printf("Unlock\n");
+    //fflush(stdout);
     //printf("Goodbye\n");
     //fflush(stdout);
     return NULL;
 }
+struct Task* create_task(void){
+    struct Task* task = malloc(sizeof(struct Task));
+    task->free_arg = 0;
+    task->free = 1;
+    pthread_mutex_init(&task->mutex, NULL);
+    pthread_cond_init(&task->cond, NULL);
+    return task;
+};
 
-void clean(struct Task* task){
+void destroy_task(struct Task* task){
+    pthread_mutex_destroy(&task->mutex);
+    pthread_cond_destroy(&task->cond);
     if (task->free_arg) free(task->arg);
     if (task->free) free(task);
 }

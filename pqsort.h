@@ -8,8 +8,10 @@ struct Args {
     int* arr;
     struct ThreadPool* pool;
 };
-int q_partition(int l, int r, int* a);
-void new_task(int left, int right, int* a, struct ThreadPool* pool);
+
+//void submit_qsort_task(int left, int right, int* a, struct ThreadPool* pool);
 void pqsort(void* a);
+int q_partition(int left, int right, int* a);
+void create_args(struct Task* task, int left, int right, int* a, struct ThreadPool* pool);
 
 #endif // PQSORT_H_INCLUDED
