@@ -6,14 +6,13 @@ void thpool_finit(struct ThreadPool* pool); // финализирует пул потоков, дожидае
 #include "thread_pool.h"
 #include <stdio.h>
 
-void thpool_init(struct ThreadPool* pool, unsigned threads_nm, int not_complete){
+void thpool_init(struct ThreadPool* pool, unsigned threads_nm){
     //printf("I'm in init\n");
     //fflush(stdout);
-    pool->not_complete = not_complete;
+    pool->not_complete = 1;
+    pthread_mutex_init(&pool->pool_mutex, NULL);
     pool->threads = malloc(threads_nm * sizeof(pthread_t));
     pool->tasks = malloc(sizeof(struct wsqueue));
-    pthread_cond_init(&pool->cond_exit, NULL);
-    pthread_mutex_init(&pool->guard, NULL);
     //printf("I'm in init\n");
     //fflush(stdout);
     wsqueue_init(pool->tasks);
@@ -26,26 +25,37 @@ void thpool_init(struct ThreadPool* pool, unsigned threads_nm, int not_complete)
 }
 
 void thpool_finit(struct ThreadPool* pool){
-    //printf("Finished\n");
-    //fflush(stdout);
+    printf("Finished\n");
+    fflush(stdout);
     pool->not_complete = 0;
-    struct Task* task = malloc(sizeof(struct Task));
-    task->arg = NULL;
-    pthread_mutex_init(&task->mutex, NULL);
-    task->f = pthread_exit;
-    thpool_submit(pool, task);
+    pthread_mutex_lock(&pool->pool_mutex);
+    for (unsigned i = 0; i < pool->num; i++){
+        struct Task* task = malloc(sizeof(struct Task));
+        task->arg = " ";
+        task->f = printf;
+        task->free_arg = 0;
+        task->free = 1;
+        thpool_submit(pool, task);
+    }
+    pthread_mutex_unlock(&pool->pool_mutex);
     for (unsigned i = 0; i < pool->num; i++){
         pthread_join(pool->threads[i], NULL);
     }
+    while(queue_size(&pool->tasks->squeue.queue)){
+        struct list_node* node = wsqueue_pop(pool->tasks);
+        struct Task* task = (struct Task*) node;
+        clean(task);
+    }
+    pthread_mutex_destroy(&pool->pool_mutex);
     free(pool->threads);
     wsqueue_finit(pool->tasks);
 }
 
 void thpool_submit(struct ThreadPool* pool, struct Task* task){
     wsqueue_push(pool->tasks, (struct list_node*) task);
-    /*printf("Task pushed %d\n", queue_size(&pool->tasks->squeue.queue));
-    fflush(stdout);
-    printf("%p\n", task->f);
+    //printf("Task pushed %d\n", queue_size(&pool->tasks->squeue.queue));
+    //fflush(stdout);
+    /*printf("%p\n", task->f);
     fflush(stdout);
     printf("%p\n", task->arg);
     fflush(stdout);*/
@@ -53,21 +63,25 @@ void thpool_submit(struct ThreadPool* pool, struct Task* task){
 
 void thpool_wait(struct Task* task){
     pthread_mutex_lock(&task->mutex);
-    pthread_cond_wait(&task->cond, &task->mutex);
-    pthread_mutex_unlock(&task->mutex);
+    while(! task->complete){
+        pthread_cond_wait(&task->cond, &task->mutex);
+    }
+    pthread_mutex_lock(&task->mutex);
 }
 
 void* thpool_go(void* arg){
     struct ThreadPool* pool = arg;
-    /*printf("Go\n");
-    fflush(stdout);*/
+    //printf("Go\n");
+    //fflush(stdout);
     while(pool->not_complete){
-        /*printf("Go go\n");
-        fflush(stdout);*/
+        //printf("GO go %d\n", pool->not_complete);
+        //fflush(stdout);
         wsqueue_wait(pool->tasks);
         //printf("I'm working %d\n", queue_size(&pool->tasks->squeue.queue));
         //fflush(stdout);
+        pthread_mutex_lock(&pool->pool_mutex);
         struct list_node* node = wsqueue_pop(pool->tasks);
+        pthread_mutex_unlock(&pool->pool_mutex);
         //printf("I'm trying to get task %d\n");
         //fflush(stdout);
         if (node){
@@ -80,17 +94,18 @@ void* thpool_go(void* arg){
             fflush(stdout);
             printf("%p\n", task->arg);
             fflush(stdout);*/
-            task->f(task->arg);
-            /*printf("task done %d\n", pool->not_complete);
-            fflush(stdout);*/
-            free(task->arg);
             pthread_mutex_destroy(&task->mutex);
-            free(task);
-            /*printf("clean\n");
-            fflush(stdout);*/
+            pthread_cond_destroy(&task->cond);
+            task->f(task->arg);
+            clean(task);
         }
     }
-    pthread_cond_broadcast(&pool->cond_exit);
-    wsqueue_notify_all(pool->tasks);
+    //printf("Goodbye\n");
+    //fflush(stdout);
     return NULL;
+}
+
+void clean(struct Task* task){
+    if (task->free_arg) free(task->arg);
+    if (task->free) free(task);
 }

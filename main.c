@@ -3,27 +3,37 @@
 #include "pqsort.h"
 
 int x[100000];
-int N;
+int N, threads_num;
+extern int done;
+extern pthread_mutex_t done_mutex;
+extern pthread_cond_t cond_exit;
+extern pthread_mutex_t guard;
 
 int main()
 {
-  N = 10;
-  for (int i=0; i<N; i++){
-    x[i] = rand();
-    printf("%d ", x[i]);
+  printf("Write down array size and numbr of threads\n");
+  scanf("%d%d", &N, &threads_num);
+  for (int i=0; i < N; i++){
+      x[i] = rand();
+      printf("%d ", x[i]);
   }
-  printf("\n");
+  printf("\n\n");
+  done = N;
+  pthread_mutex_init(&done_mutex, NULL);
+  pthread_mutex_init(&guard, NULL);
+  pthread_cond_init(&cond_exit, NULL);
   struct ThreadPool pool;
-  thpool_init(&pool, 2, N);
+  thpool_init(&pool, threads_num);
   new_task(0, N, x, &pool);
-  while(pool.not_complete > 0){
-    pthread_mutex_lock(&pool.guard);
-    pthread_cond_wait(&pool.cond_exit, &pool.guard);
-    pthread_mutex_unlock(&pool.guard);
+  pthread_mutex_lock(&guard);
+  while(done > 0){
+      pthread_cond_wait(&cond_exit, &guard);
   }
+  pthread_mutex_unlock(&guard);
   for (int i=0; i<N; i++){
-    printf("%d ", x[i]);
+      printf("%d ", x[i]);
   }
   thpool_finit(&pool);
+  pthread_mutex_destroy(&done_mutex);
   return 0;
 }

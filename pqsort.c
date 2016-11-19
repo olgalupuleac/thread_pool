@@ -2,9 +2,14 @@
 #include <stdio.h>
 #include "pqsort.h"
 
+int done;
+pthread_mutex_t done_mutex;
+pthread_cond_t cond_exit;
+pthread_mutex_t guard;
+
 int q_partition(int left, int right, int* a){
     int i = left; int j = right - 1;
-    int ind = rand() % (right-left) + left;
+    int ind = rand() % (right - left) + left;
     int x = a[ind];
     while(i <= j) {
         while(a[i] < x) i++;
@@ -20,14 +25,22 @@ int q_partition(int left, int right, int* a){
 }
 
 void new_task(int left, int right, int* a, struct ThreadPool* pool){
-    if (right - left == 1) pool->not_complete--;
+    if (right - left == 1) {
+            pthread_mutex_lock(&done_mutex);
+            done--;
+            //printf("Done changed, it is %d\n", done);
+            //fflush(stdout);
+            if (done == 0) pthread_cond_broadcast(&cond_exit);
+            pthread_mutex_unlock(&done_mutex);
+    }
     if (right - left > 1) {
         struct Task* task = malloc(sizeof(struct Task));
-        task->arg = malloc(sizeof(struct Args));
         pthread_mutex_init(&task->mutex, NULL);
+        pthread_cond_init(&task->cond, NULL);
+        task->f = pqsort;
+        task->free = 1;
         //printf("Memory allocated\n");
         //fflush(stdout);
-        task->f = pqsort;
         struct Args* args = malloc(sizeof(struct Args));
         args->arr = a;
         args->left = left;
@@ -35,6 +48,7 @@ void new_task(int left, int right, int* a, struct ThreadPool* pool){
         args->arr = a;
         args->pool = pool;
         task->arg = args;
+        task->free_arg = 1;
         //printf("Args ready: left and right %d %d\n", args->left, args->right);
         //fflush(stdout);
         thpool_submit(pool, task);
