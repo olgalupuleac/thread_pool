@@ -1,11 +1,30 @@
-#include <stdlib.h>
 #include <stdio.h>
-#include "pqsort.h"
+#include <stdlib.h>
+#include "thread_pool.h"
 
 int done;
 pthread_mutex_t done_mutex;
 pthread_cond_t cond_exit;
 pthread_mutex_t guard;
+
+struct Args {
+    int left;
+    int right;
+    int* arr;
+    struct ThreadPool* pool;
+};
+
+void pqsort(void* a);
+
+void create_args(struct Task* task, int left, int right, int* a, struct ThreadPool* pool){
+        struct Args* args = malloc(sizeof(struct Args));
+        args->left = left;
+        args->right = right;
+        args->arr = a;
+        args->pool = pool;
+        task->arg = args;
+        task->free_arg = 1;
+}
 
 int q_partition(int left, int right, int* a){
     int i = left; int j = right - 1;
@@ -20,7 +39,6 @@ int q_partition(int left, int right, int* a){
             a[j--] = tmp;
         }
     }
-    //if (i < j) return j;
     return i;
 }
 
@@ -28,9 +46,7 @@ void submit_qsort_task(int left, int right, int* a, struct ThreadPool* pool){
     if (right - left == 1) {
             pthread_mutex_lock(&done_mutex);
             done--;
-            //printf("Done changed, it is %d\n", done);
-            //fflush(stdout);
-            if (done == 0) pthread_cond_broadcast(&cond_exit);
+            if (done == 0) pthread_cond_signal(&cond_exit);
             pthread_mutex_unlock(&done_mutex);
     }
     if (right - left > 1) {
@@ -42,22 +58,27 @@ void submit_qsort_task(int left, int right, int* a, struct ThreadPool* pool){
 }
 
 void pqsort(void* a){
-    //printf("Hi, I'm pqsort\n");
-    //fflush(stdout);
     struct Args* args = a;
-    //printf("%d %d\n", args->left, args->right);
-    //fflush(stdout);
     int new_border = q_partition(args->left, args->right, args->arr);
     submit_qsort_task(args->left, new_border, args->arr, args->pool);
     submit_qsort_task(new_border, args->right, args->arr, args->pool);
 }
 
-void create_args(struct Task* task, int left, int right, int* a, struct ThreadPool* pool){
-        struct Args* args = malloc(sizeof(struct Args));
-        args->left = left;
-        args->right = right;
-        args->arr = a;
-        args->pool = pool;
-        task->arg = args;
-        task->free_arg = 1;
+void sort_array(int* x, int N, struct ThreadPool* pool, int threads_num){
+    done = N;
+    pthread_mutex_init(&done_mutex, NULL);
+    pthread_mutex_init(&guard, NULL);
+    pthread_cond_init(&cond_exit, NULL);
+    thpool_init(pool, threads_num);
+    submit_qsort_task(0, N, x, pool);
+    pthread_mutex_lock(&guard);
+    while(done > 0){
+        pthread_cond_wait(&cond_exit, &guard);
+    }
+    pthread_mutex_unlock(&guard);
+    thpool_finit(pool);
+    pthread_mutex_destroy(&done_mutex);
+    pthread_mutex_destroy(&guard);
+    pthread_cond_destroy(&cond_exit);
+    printf("Mission complete!\n");
 }
