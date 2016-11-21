@@ -17,7 +17,7 @@ struct Task {
 struct ThreadPool {
     pthread_t* threads;
     struct wsqueue* tasks;
-    struct wsqueue* finished_tasks;
+    struct wsqueue* tasks_to_delete;
     unsigned num;
     int is_working;
     pthread_mutex_t pool_mutex;

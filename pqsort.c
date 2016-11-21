@@ -5,7 +5,6 @@
 int done;
 pthread_mutex_t done_mutex;
 pthread_cond_t cond_exit;
-pthread_mutex_t guard;
 
 struct Args {
     int left;
@@ -67,18 +66,16 @@ void pqsort(void* a){
 void sort_array(int* x, int N, struct ThreadPool* pool, int threads_num){
     done = N;
     pthread_mutex_init(&done_mutex, NULL);
-    pthread_mutex_init(&guard, NULL);
     pthread_cond_init(&cond_exit, NULL);
     thpool_init(pool, threads_num);
     submit_qsort_task(0, N, x, pool);
-    pthread_mutex_lock(&guard);
+    pthread_mutex_lock(&done_mutex);
     while(done > 0){
-        pthread_cond_wait(&cond_exit, &guard);
+        pthread_cond_wait(&cond_exit, &done_mutex);
     }
-    pthread_mutex_unlock(&guard);
+    pthread_mutex_unlock(&done_mutex);
     thpool_finit(pool);
     pthread_mutex_destroy(&done_mutex);
-    pthread_mutex_destroy(&guard);
     pthread_cond_destroy(&cond_exit);
     printf("Mission complete!\n");
 }

@@ -1,14 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "thread_pool.h"
+#include "pqsort.h"
 
 
 int x[100000];
 int y[100000];
 int N, threads_num;
-
-void sort_array(int* x, int N, struct ThreadPool* pool, int threads_num);
 
 int comp (const int *i, const int *j)
 {

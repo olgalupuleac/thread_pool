@@ -12,10 +12,12 @@ void* thpool_go(void* arg){
         struct list_node* node = wsqueue_pop(pool->tasks);
         if(node){
             struct Task* task = (struct Task*) node;
-            wsqueue_push(pool->finished_tasks, (struct list_node*) task);
+            wsqueue_push(pool->tasks_to_delete, (struct list_node*) task);
             if(task->f) task->f(task->arg);
+            pthread_mutex_lock(&task->mutex);
             task->complete = 1;
             pthread_cond_signal(&task->cond);
+            pthread_mutex_unlock(&task->mutex);
         }
     }
     return NULL;
@@ -43,9 +45,9 @@ void thpool_init(struct ThreadPool* pool, unsigned threads_nm){
     pthread_mutex_init(&pool->pool_mutex, NULL);
     pool->threads = malloc(threads_nm * sizeof(pthread_t));
     pool->tasks = malloc(sizeof(struct wsqueue));
-    pool->finished_tasks = malloc(sizeof(struct wsqueue));
+    pool->tasks_to_delete = malloc(sizeof(struct wsqueue));
     wsqueue_init(pool->tasks);
-    wsqueue_init(pool->finished_tasks);
+    wsqueue_init(pool->tasks_to_delete);
     pool->num = threads_nm;
     for (unsigned i = 0; i < threads_nm; i++){
         pthread_create(&pool->threads[i], NULL, thpool_go, pool);
@@ -65,17 +67,17 @@ void thpool_finit(struct ThreadPool* pool){
     for (unsigned i = 0; i < pool->num; i++){
         pthread_join(pool->threads[i], NULL);
     }
-    while(queue_size(&pool->finished_tasks->squeue.queue)){
-        struct list_node* node = wsqueue_pop(pool->finished_tasks);
+    while(queue_size(&pool->tasks_to_delete->squeue.queue)){
+        struct list_node* node = wsqueue_pop(pool->tasks_to_delete);
         struct Task* task = (struct Task*) node;
         destroy_task(task);
     }
     pthread_mutex_destroy(&pool->pool_mutex);
     free(pool->threads);
     wsqueue_finit(pool->tasks);
-    wsqueue_finit(pool->finished_tasks);
+    wsqueue_finit(pool->tasks_to_delete);
     free(pool->tasks);
-    free(pool->finished_tasks);
+    free(pool->tasks_to_delete);
 }
 
 void thpool_submit(struct ThreadPool* pool, struct Task* task){
